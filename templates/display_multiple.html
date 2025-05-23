@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uploaded Blots</title>
+<style>
+.blot-gallery {
+    display: block;
+    width: 100%;
+    min-height: 800px;
+    padding: 10px;
+    border: 2px solid #ccc;
+    background-color: #f9f9f9;
+    box-sizing: border-box;
+    position: relative;
+
+    background-image: 
+        linear-gradient(to right, #e0e0e0 1px, transparent 1px),
+        linear-gradient(to bottom, #e0e0e0 1px, transparent 1px);
+    background-size: 25px 25px;
+}
+
+/* 🔧 Wrapper for each blot */
+.blot {
+  position: absolute;
+  width: 400px;
+  height: auto;
+  cursor: grab;
+  user-select: none;
+  box-sizing: border-box;
+  overflow: visible;
+  resize: none;
+  padding-left: 100px;
+  padding-top: 30px; /* reserve space for markers */
+  background: white;
+}
+
+/* Marker area on left */
+.marker-area {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0);
+  cursor: crosshair;
+  overflow: visible;
+  box-sizing: border-box;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Molecular weight marker wrapper */
+.mw-marker {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  cursor: move;
+  user-select: none;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Molecular weight marker label */
+.marker-label {
+  width: 70px;
+  font-size: 12px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 2px 6px;
+  cursor: text;
+  user-select: text;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Molecular weight marker line */
+.marker-line {
+  height: 2px;
+  width: 18px;
+  background-color: black;
+  flex-shrink: 0;
+}
+
+/* 🔧 Image inside the wrapper */
+.blot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  pointer-events: none; /* don't interfere with drag/resize */
+}
+
+/* 🔧 Resize handle */
+.resize-handle {
+  width: 12px;
+  height: 12px;
+  background-color: #000;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+  z-index: 10;
+}
+
+/* Main label*/
+.label {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  margin-left: 8px;
+  font-size: 14px;
+  color: #333;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 4px;
+  cursor: text;
+  user-select: text;
+  box-sizing: border-box;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+/* Lane labels container moved to flex layout above image */
+.lane-labels {
+  position: absolute;
+  bottom: 100%; /* place it directly above the image */
+  left: 0;
+  width: 100%;
+  height: auto;
+  padding-bottom: 6px; /* some breathing room */
+  pointer-events: none; /* container ignores pointer */
+  display: flex;
+  justify-content: space-around;
+  user-select: none;
+}
+
+/* Each lane label */
+.lane-label {
+  position: relative; /* so no weird offsets */
+  transform: none;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 2px 4px;
+  pointer-events: auto; /* allows editing */
+  cursor: text;
+  white-space: nowrap;
+  user-select: text;
+}
+
+/* Highlight selected labels */
+.label.selected,
+.lane-label.selected,
+.marker-label.selected {
+  outline: 2px dashed #007bff;
+  outline-offset: 2px;
+}
+
+/* Default label borders are transparent */
+.label,
+.lane-label,
+.marker-label {
+  border: 1px dashed transparent;
+}
+
+/* Border on focus */
+.label:focus,
+.lane-label:focus,
+.marker-label:focus {
+  border: 1px dashed #999;
+}
+
+
+.lock-btn {
+  position: absolute;
+  top: 4px;
+  right: 40px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.blot.locked {
+  cursor: default;
+  border-color: #ccc; /* faded border or add a visual cue */
+  opacity: 0.95;
+}
+
+.blot.locked .resize-handle {
+  display: none;
+}
+
+.logo-container {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+}
+
+.logo {
+  height: 70px;
+  width: auto;
+  cursor: pointer;
+}
+
+
+</style>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
+
+</head>
+<body>
+  <h1>Uploaded Blots</h1>
+
+<div class="logo-container">
+  <img src="{{ url_for('static', filename='assets/logo.png') }}" alt="App Logo" class="logo" />
+</div>
+
+
+<div style="background: #eef; padding: 6px 10px; border-left: 4px solid #66f; font-size: 14px; margin-bottom: 10px;">
+  <strong>Tip:</strong> <kbd>Alt</kbd> + <kbd>Click</kbd> a label to delete it.
+</div>
+<div style="background: #eef; padding: 6px 10px; border-left: 4px solid #66f; font-size: 14px; margin-bottom: 10px;">
+  <strong>Tip:</strong> Select one or more labels; use <kbd>Shift</kbd>+<kbd>Click</kbd> to multi-select.
+</div>
+
+
+
+  <div style="margin-bottom: 10px;">
+    <label for="font-size">Font Size:</label>
+    <input type="number" id="font-size" min="8" max="36" value="14">
+
+    <label for="font-color" style="margin-left: 10px;">Font Color:</label>
+    <input type="color" id="font-color" value="#333333">
+
+    <span style="margin-left: 10px; font-style: italic;"></span>
+  </div>
+
+  <div id="export-area">
+    <div class="blot-gallery" id="gallery">
+      {% for img in image_urls %}
+        <div class="blot" id="blot{{ loop.index }}">
+
+          <div class="marker-area"></div>
+
+          <div class="content-wrapper" style="position: relative;">
+            <!-- Lane labels above blot image, spaced evenly -->
+            <div class="lane-labels" style="position: relative; display: flex; justify-content: space-around; padding-bottom: 4px;">
+              {% for i in range(num_labels) %}
+                <div class="lane-label" contenteditable="true" style="white-space: nowrap;">Lane {{ i+1 }}</div>
+              {% endfor %}
+            </div>
+
+            <div class="label" contenteditable="true" style="margin-bottom: 4px;">Label {{ loop.index }}</div>
+
+            <img src="/{{ img }}" alt="Blot" class="blot-img" style="width: 100%; height: auto;">
+          </div>
+
+          <button class="crop-btn">Crop</button>
+	  <button class="lock-btn">🔒</button>
+
+          <div class="resize-handle"></div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+
+
+<div style="margin-top: 20px;">
+  <button id="save-layout-btn">Save Layout</button>
+  <input type="file" id="load-layout-file" style="display:none" accept=".json" />
+  <button id="load-layout-btn">Load Layout</button>
+</div>
+
+
+  <p><a href="/">Upload more</a></p>
+
+
+
+<script>
+document.querySelectorAll('.blot').forEach(blot => {
+  const handle = blot.querySelector('.resize-handle');
+  const lockBtn = blot.querySelector('.lock-btn');
+
+  // Set initial lock icon
+  lockBtn.textContent = blot.classList.contains('locked') ? '🔓' : '🔒';
+
+  // Toggle lock state
+  lockBtn.addEventListener('click', e => {
+    e.stopPropagation(); // Prevent accidental blot dragging
+    blot.classList.toggle('locked');
+    lockBtn.textContent = blot.classList.contains('locked') ? '🔓' : '🔒';
+  });
+
+  // DRAGGING
+  let isDragging = false, offsetX, offsetY;
+
+  blot.addEventListener('mousedown', e => {
+    // Conditions that prevent dragging
+    const isBlockedTarget = [
+      'resize-handle', 'label', 'lane-label', 'marker-label', 'lock-btn'
+    ].some(cls => e.target.classList.contains(cls)) || e.target.closest('.mw-marker');
+
+    if (blot.classList.contains('locked') || isBlockedTarget) return;
+
+    isDragging = true;
+    const rect = blot.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+
+    const onMouseMove = e => {
+      if (!isDragging) return;
+      const gridSize = 25;
+      let x = e.clientX - offsetX;
+      let y = e.clientY - offsetY;
+      x = Math.round(x / gridSize) * gridSize;
+      y = Math.round(y / gridSize) * gridSize;
+      blot.style.left = `${x}px`;
+      blot.style.top = `${y}px`;
+    };
+
+    const onMouseUp = () => {
+      isDragging = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+
+  // RESIZING
+  let isResizing = false;
+
+  handle.addEventListener('mousedown', e => {
+    if (blot.classList.contains('locked')) return;
+    e.stopPropagation();
+
+    isResizing = true;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = blot.offsetWidth;
+    const startHeight = blot.offsetHeight;
+
+    const onMouseMove = e => {
+      if (!isResizing) return;
+      blot.style.width = `${startWidth + (e.clientX - startX)}px`;
+      blot.style.height = `${startHeight + (e.clientY - startY)}px`;
+    };
+
+    const onMouseUp = () => {
+      isResizing = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+});
+</script>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<button id="download-btn">Download Figure as PNG</button>
+
+<script>
+document.getElementById('download-btn').addEventListener('click', function () {
+    const exportArea = document.getElementById('export-area');
+    const blotGallery = document.getElementById('gallery');
+
+    // Store original styles
+    const originalStyle = blotGallery.getAttribute('style');
+    const originalClasses = blotGallery.className;
+
+    // Temporarily simplify appearance for export
+    blotGallery.style.background = 'white';
+    blotGallery.style.border = 'none';
+    blotGallery.style.backgroundImage = 'none';
+
+    // Hide controls and UI buttons during export
+    document.querySelectorAll('.crop-btn, .resize-handle, button, input[type="color"], input[type="number"]').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    html2canvas(exportArea, {
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        scale: 2, // Higher resolution
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = 'western_blot_figure.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Restore original appearance
+        blotGallery.setAttribute('style', originalStyle || '');
+        blotGallery.className = originalClasses;
+        document.querySelectorAll('.crop-btn, .resize-handle, button, input[type="color"], input[type="number"]').forEach(el => {
+            el.style.display = '';
+        });
+    });
+});
+</script>
+
+
+
+
+
+<script>
+let activeCropper = null;
+
+document.querySelectorAll('.crop-btn').forEach(button => {
+    button.addEventListener('click', function () {
+        const blot = button.closest('.blot');
+        const img = blot.querySelector('.blot-img');
+
+        // Destroy any existing cropper
+        if (activeCropper) {
+            activeCropper.destroy();
+            activeCropper = null;
+        }
+
+        const cropper = new Cropper(img, {
+            viewMode: 1,
+            background: false,
+            autoCropArea: 1,
+            movable: true,
+            zoomable: true,
+            scalable: false,
+            cropBoxResizable: true,
+        });
+
+        activeCropper = cropper;
+
+        button.style.display = 'none';
+
+        const applyBtn = document.createElement('button');
+        applyBtn.textContent = 'Apply Crop';
+        blot.appendChild(applyBtn);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        blot.appendChild(cancelBtn);
+
+        applyBtn.addEventListener('click', () => {
+            const canvas = cropper.getCroppedCanvas();
+            const croppedImageUrl = canvas.toDataURL();
+
+            cropper.destroy();
+            activeCropper = null;
+
+            img.src = croppedImageUrl;
+            img.classList.remove('cropper-hidden');  // Ensure visibility
+
+            applyBtn.remove();
+            cancelBtn.remove();
+            button.style.display = 'inline-block';
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            cropper.destroy();
+            activeCropper = null;
+
+            applyBtn.remove();
+            cancelBtn.remove();
+            button.style.display = 'inline-block';
+        });
+    });
+});
+</script>
+
+<script>
+    // Allow delete on click while holding down the "Alt" key
+    document.addEventListener('click', function(e) {
+        if ((e.target.classList.contains('label') || e.target.classList.contains('lane-label')) && e.altKey) {
+            e.target.remove();
+        }
+    });
+
+    // Optionally: Show tooltip on hover
+    document.querySelectorAll('.label, .lane-label').forEach(label => {
+        label.title = "Alt+Click to delete";
+    });
+</script>
+
+<script>
+document.querySelectorAll('.marker-area').forEach(markerArea => {
+    markerArea.addEventListener('click', function (e) {
+        if (e.target !== markerArea) return;
+
+        const y = e.offsetY;
+
+        // Wrapper to hold line and label
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mw-marker';
+        wrapper.style.top = `${y}px`;
+
+        // Line
+        const line = document.createElement('div');
+        line.className = 'marker-line';
+
+        // Label
+        const label = document.createElement('div');
+        label.className = 'marker-label';
+        label.contentEditable = true;
+        label.textContent = 'MW';
+
+        // Stop propagation when editing label
+        label.addEventListener('mousedown', e => e.stopPropagation());
+
+        // Append to wrapper
+        wrapper.appendChild(label);
+        wrapper.appendChild(line);
+        markerArea.appendChild(wrapper);
+
+        // Dragging logic
+        let isDragging = false;
+
+        wrapper.addEventListener('mousedown', function (e) {
+            isDragging = true;
+            e.preventDefault();
+
+            const startY = e.clientY;
+            const startTop = parseInt(wrapper.style.top);
+
+            const onMouseMove = e => {
+                if (!isDragging) return;
+                const deltaY = e.clientY - startY;
+                const newTop = Math.max(0, startTop + deltaY);
+                wrapper.style.top = `${newTop}px`;
+            };
+
+            const onMouseUp = () => {
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    });
+});
+</script>
+
+
+<script>
+let selectedLabels = new Set();
+
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('label') || e.target.classList.contains('lane-label') || e.target.classList.contains('marker-label')) {
+        if (e.shiftKey) {
+            // Toggle selection
+            if (selectedLabels.has(e.target)) {
+                e.target.classList.remove('selected');
+                selectedLabels.delete(e.target);
+            } else {
+                e.target.classList.add('selected');
+                selectedLabels.add(e.target);
+            }
+        } else {
+            // Clear and select only this
+            selectedLabels.forEach(lbl => lbl.classList.remove('selected'));
+            selectedLabels.clear();
+            e.target.classList.add('selected');
+            selectedLabels.add(e.target);
+        }
+    }
+});
+
+
+// Font size input
+document.getElementById('font-size').addEventListener('input', function () {
+    selectedLabels.forEach(label => {
+        label.style.fontSize = this.value + 'px';
+    });
+});
+
+// Font color input
+document.getElementById('font-color').addEventListener('input', function () {
+    selectedLabels.forEach(label => {
+        label.style.color = this.value;
+    });
+});
+</script>
+
+<script>
+function saveLayout() {
+  const blots = document.querySelectorAll('.blot');
+  const layout = [];
+
+  blots.forEach(blot => {
+    const id = blot.id;
+    const rect = blot.getBoundingClientRect();
+
+    // Position relative to parent container (gallery)
+    const parentRect = blot.parentElement.getBoundingClientRect();
+    const left = blot.offsetLeft;
+    const top = blot.offsetTop;
+
+    // Size
+    const width = blot.offsetWidth;
+    const height = blot.offsetHeight;
+
+    // Main label
+    const mainLabel = blot.querySelector('.label');
+    const mainLabelData = {
+      text: mainLabel.textContent,
+      fontSize: mainLabel.style.fontSize || '',
+      color: mainLabel.style.color || ''
+    };
+
+    // Lane labels
+    const laneLabels = [];
+    blot.querySelectorAll('.lane-label').forEach(ll => {
+      laneLabels.push({
+        text: ll.textContent,
+        fontSize: ll.style.fontSize || '',
+        color: ll.style.color || '',
+        left: ll.style.left
+      });
+    });
+
+    // Marker labels
+    const markerLabels = [];
+    blot.querySelectorAll('.marker-label').forEach(ml => {
+      markerLabels.push({
+        text: ml.textContent,
+        fontSize: ml.style.fontSize || '',
+        color: ml.style.color || '',
+        top: ml.parentElement.style.top  // wrapper's top
+      });
+    });
+
+    // Image src (for cropped image)
+    const img = blot.querySelector('img.blot-img');
+    const imgSrc = img.src;
+
+    layout.push({
+      id,
+      left,
+      top,
+      width,
+      height,
+      mainLabel: mainLabelData,
+      laneLabels,
+      markerLabels,
+      imgSrc,
+    });
+  });
+
+  return JSON.stringify(layout);
+}
+</script>
+
+<script>
+function loadLayout(jsonStr) {
+  const layout = JSON.parse(jsonStr);
+
+  layout.forEach(blotData => {
+    const blot = document.getElementById(blotData.id);
+    if (!blot) return;
+
+    blot.style.left = blotData.left + 'px';
+    blot.style.top = blotData.top + 'px';
+    blot.style.width = blotData.width + 'px';
+    blot.style.height = blotData.height + 'px';
+
+    // Main label
+    const mainLabel = blot.querySelector('.label');
+    mainLabel.textContent = blotData.mainLabel.text;
+    mainLabel.style.fontSize = blotData.mainLabel.fontSize;
+    mainLabel.style.color = blotData.mainLabel.color;
+
+    // Lane labels
+    const laneLabels = blot.querySelectorAll('.lane-label');
+    laneLabels.forEach((ll, idx) => {
+      const saved = blotData.laneLabels[idx];
+      if (!saved) return;
+      ll.textContent = saved.text;
+      ll.style.fontSize = saved.fontSize;
+      ll.style.color = saved.color;
+      ll.style.left = saved.left;
+    });
+
+    // Marker labels
+    const markerLabels = blot.querySelectorAll('.marker-label');
+    markerLabels.forEach((ml, idx) => {
+      const saved = blotData.markerLabels[idx];
+      if (!saved) return;
+      ml.textContent = saved.text;
+      ml.style.fontSize = saved.fontSize;
+      ml.style.color = saved.color;
+      ml.parentElement.style.top = saved.top;
+    });
+
+    // Image src
+    const img = blot.querySelector('img.blot-img');
+    img.src = blotData.imgSrc;
+  });
+}
+</script>
+
+<script>
+document.getElementById('save-layout-btn').addEventListener('click', () => {
+  const layoutJson = saveLayout();
+
+  const blob = new Blob([layoutJson], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'blot_layout.json';
+  a.click();
+
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('load-layout-btn').addEventListener('click', () => {
+  document.getElementById('load-layout-file').click();
+});
+
+document.getElementById('load-layout-file').addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      loadLayout(e.target.result);
+    } catch (err) {
+      alert('Failed to load layout: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+
+  // Clear input so same file can be reloaded if needed
+  event.target.value = '';
+});
+</script>
+
+
+
+</body>
+</html>

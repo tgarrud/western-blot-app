@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Western Blot Annotator</title>
+</head>
+<body>
+    <h1>Upload and Annotate Your Blot</h1>
+<form method="POST" action="/upload" enctype="multipart/form-data">
+    <label for="file">Choose blot images:</label>
+    <input type="file" name="file" multiple required><br><br>
+
+    <label for="num_labels">Number of lane labels per blot:</label>
+    <input type="number" name="num_labels" min="1" max="20" value="8"><br><br>
+
+    <input type="submit" value="Upload">
+</form>
+
+</body>
+</html>
