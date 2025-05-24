@@ -1,8 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Uploaded Blots</title>
+    <title>Blot Figure Editor</title>
 <style>
+
+body {
+  font-family: Verdana, sans-serif;
+}
+
 .blot-gallery {
     display: block;
     width: 100%;
@@ -225,7 +230,7 @@
 
 </head>
 <body>
-  <h1>Uploaded Blots</h1>
+  <h1>Figure Editor</h1>
 
 <div class="logo-container">
   <img src="{{ url_for('static', filename='assets/logo.png') }}" alt="App Logo" class="logo" />
@@ -249,6 +254,15 @@
     <input type="color" id="font-color" value="#333333">
 
     <span style="margin-left: 10px; font-style: italic;"></span>
+<label for="font-family" style="margin-left: 10px;">Font:</label>
+<select id="font-family">
+  <option value="Arial">Arial</option>
+  <option value="Courier New">Courier New</option>
+  <option value="Georgia">Georgia</option>
+  <option value="Times New Roman">Times New Roman</option>
+  <option value="Verdana">Verdana</option>
+</select>
+
   </div>
 
   <div id="export-area">
@@ -472,6 +486,14 @@ document.querySelectorAll('.crop-btn').forEach(button => {
             activeCropper = null;
 
             img.src = croppedImageUrl;
+		const markers = blot.querySelectorAll('.mw-marker');
+		markers.forEach(marker => {
+  		const percentY = parseFloat(marker.dataset.relY);
+  		if (!isNaN(percentY)) {
+    		marker.style.top = `${percentY * img.clientHeight}px`;
+  		}
+		});
+
             img.classList.remove('cropper-hidden');  // Ensure visibility
 
             applyBtn.remove();
@@ -492,12 +514,24 @@ document.querySelectorAll('.crop-btn').forEach(button => {
 </script>
 
 <script>
-    // Allow delete on click while holding down the "Alt" key
-    document.addEventListener('click', function(e) {
-        if ((e.target.classList.contains('label') || e.target.classList.contains('lane-label')) && e.altKey) {
+// Allow delete on click while holding down the "Alt" key
+document.addEventListener('click', function(e) {
+    if (
+        (e.target.classList.contains('label') ||
+         e.target.classList.contains('lane-label') ||
+         e.target.classList.contains('marker-label')) &&
+        e.altKey
+    ) {
+        // For marker-label, remove its parent (.mw-marker wrapper)
+        if (e.target.classList.contains('marker-label')) {
+            const wrapper = e.target.closest('.mw-marker');
+            if (wrapper) wrapper.remove();
+        } else {
             e.target.remove();
         }
-    });
+    }
+});
+
 
     // Optionally: Show tooltip on hover
     document.querySelectorAll('.label, .lane-label').forEach(label => {
@@ -507,15 +541,20 @@ document.querySelectorAll('.crop-btn').forEach(button => {
 
 <script>
 document.querySelectorAll('.marker-area').forEach(markerArea => {
+    const blot = markerArea.closest('.blot');
+    const img = blot.querySelector('img');
+
     markerArea.addEventListener('click', function (e) {
         if (e.target !== markerArea) return;
 
         const y = e.offsetY;
+        const percentY = y / img.clientHeight;
 
         // Wrapper to hold line and label
         const wrapper = document.createElement('div');
         wrapper.className = 'mw-marker';
-        wrapper.style.top = `${y}px`;
+        wrapper.dataset.relY = percentY;
+        wrapper.style.top = `${percentY * img.clientHeight}px`;
 
         // Line
         const line = document.createElement('div');
@@ -527,10 +566,8 @@ document.querySelectorAll('.marker-area').forEach(markerArea => {
         label.contentEditable = true;
         label.textContent = 'MW';
 
-        // Stop propagation when editing label
         label.addEventListener('mousedown', e => e.stopPropagation());
 
-        // Append to wrapper
         wrapper.appendChild(label);
         wrapper.appendChild(line);
         markerArea.appendChild(wrapper);
@@ -556,6 +593,8 @@ document.querySelectorAll('.marker-area').forEach(markerArea => {
                 isDragging = false;
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
+                const updatedPercentY = wrapper.offsetTop / img.clientHeight;
+                wrapper.dataset.relY = updatedPercentY;
             };
 
             document.addEventListener('mousemove', onMouseMove);
@@ -605,6 +644,15 @@ document.getElementById('font-color').addEventListener('input', function () {
     });
 });
 </script>
+
+<script>
+document.getElementById('font-family').addEventListener('change', function () {
+  selectedLabels.forEach(label => {
+    label.style.fontFamily = this.value;
+  });
+});
+</script>
+
 
 <script>
 function saveLayout() {
@@ -758,6 +806,27 @@ document.getElementById('load-layout-file').addEventListener('change', (event) =
 
   // Clear input so same file can be reloaded if needed
   event.target.value = '';
+});
+</script>
+
+<script>
+// Clear default text on focus, restore if left empty
+document.querySelectorAll('.label, .lane-label').forEach(label => {
+  label.addEventListener('focus', function () {
+    if (this.textContent.trim().startsWith('Label') || this.textContent.trim().startsWith('Lane')) {
+      this.textContent = '';
+    }
+  });
+
+  label.addEventListener('blur', function () {
+    if (this.textContent.trim() === '') {
+      if (this.classList.contains('label')) {
+        this.textContent = 'Label';
+      } else if (this.classList.contains('lane-label')) {
+        this.textContent = 'Lane';
+      }
+    }
+  });
 });
 </script>
 

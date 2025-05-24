@@ -55,3 +55,4 @@ def upload():
     return render_template('display_multiple.html', image_urls=image_urls, num_labels=num_labels)
 
 
+

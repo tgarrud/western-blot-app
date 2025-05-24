@@ -1,10 +1,33 @@
 <!DOCTYPE html>
 <html>
+<style>
+body {
+  font-family: Verdana, sans-serif;
+}
+
+.logo-container {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+}
+
+.logo {
+  height: 70px;
+  width: auto;
+  cursor: pointer;
+}
+</style>
 <head>
     <title>Western Blot Annotator</title>
 </head>
 <body>
     <h1>Upload and Annotate Your Blot</h1>
+
+<div class="logo-container">
+  <img src="{{ url_for('static', filename='assets/logo.png') }}" alt="App Logo" class="logo" />
+</div>
+
 <form method="POST" action="/upload" enctype="multipart/form-data">
     <label for="file">Choose blot images:</label>
     <input type="file" name="file" multiple required><br><br>
